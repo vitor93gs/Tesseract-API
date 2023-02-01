@@ -5,6 +5,7 @@ const { exec } = require("child_process");
 const Tesseract = require("tesseract.js");
 const bodyParser = require("body-parser");
 const fs = require("fs");
+const uuid = require("uuid");
 
 var response = {
   type: "",
@@ -25,14 +26,14 @@ app.post("/getInfo", async (req, res) => {
   const fileBuffer = req.body;
   const records = JSON.parse(req.headers.recordarray).record;
   try {
-    const localFilePath = "input.pdf";
-    fs.writeFile(localFilePath, fileBuffer, (err) => {
+    const localFilePath = `${Date.now()}-${uuid.v4()}`;
+    fs.writeFile(localFilePath + ".pdf", fileBuffer, (err) => {
       if (err) {
         console.error(err);
         return;
       }
       exec(
-        `gm convert -density 300 ${localFilePath} output.png`,
+        `gm convert -density 300 ${localFilePath}.pdf ${localFilePath}.png`,
         async (error, stdout, stderr) => {
           if (error) {
             console.error(`exec error: ${error}`);
@@ -50,7 +51,7 @@ app.post("/getInfo", async (req, res) => {
           await worker.loadLanguage("por");
           await worker.initialize("por");
           // Read the image file and convert it to a Uint8Array
-          const imageBuffer = await fs.readFileSync("output.png");
+          const imageBuffer = await fs.readFileSync(`${localFilePath}.png`);
           const imageUint8Array = new Uint8Array(imageBuffer);
           const {
             data: { text },
@@ -84,8 +85,8 @@ app.post("/getInfo", async (req, res) => {
 
           await worker.terminate();
 
-          fs.unlinkSync("output.png");
-          fs.unlinkSync("input.pdf");
+          fs.unlinkSync(`${localFilePath}.png`);
+          fs.unlinkSync(`${localFilePath}.pdf`);
           console.log(response);
           return res.status(200).json(response);
         }
